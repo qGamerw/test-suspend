@@ -27,6 +27,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("io.ktor:ktor-client-core-jvm:2.3.12")
     implementation("io.ktor:ktor-client-cio-jvm:2.3.12")
+    implementation("io.ktor:ktor-client-content-negotiation-jvm:2.3.12")
+    implementation("io.ktor:ktor-serialization-kotlinx-json-jvm:2.3.12")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
