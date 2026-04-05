@@ -3,6 +3,7 @@ package org.example.testsuspend
 import org.example.testsuspend.rest.client.RestClient
 import org.example.testsuspend.rest.config.HttpClientFactory
 import org.example.testsuspend.rest.config.HttpClientProvider
+import org.example.testsuspend.rest.controller.RestClientUsageExamplesController
 import org.example.testsuspend.rest.logging.RestClientLogWriter
 import org.example.testsuspend.rest.model.CreatePaymentRequest
 import org.example.testsuspend.rest.model.CreatePaymentResponse
@@ -27,6 +28,9 @@ class TestSuspendApplicationTests {
     private lateinit var restClientLogWriter: RestClientLogWriter
 
     @Autowired
+    private lateinit var restClientUsageExamplesController: RestClientUsageExamplesController
+
+    @Autowired
     @Qualifier("createPaymentRestClient")
     private lateinit var createPaymentRestClient: RestClient<CreatePaymentRequest, CreatePaymentResponse>
 
@@ -40,6 +44,7 @@ class TestSuspendApplicationTests {
         assertNotNull(httpClientProvider)
         assertNotNull(httpClientProvider.get())
         assertNotNull(restClientLogWriter)
+        assertNotNull(restClientUsageExamplesController)
         assertNotNull(createPaymentRestClient)
         assertNotNull(resolveCustomerRestClient)
     }
