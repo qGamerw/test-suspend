@@ -1,6 +1,7 @@
 package org.example.testsuspend.rest.config
 
 data class HttpClientSettings(
+    val threadCount: Int,
     val timeoutMillis: Long,
     val maxConnectionsCount: Int,
     val maxConnectionsPerRoute: Int,

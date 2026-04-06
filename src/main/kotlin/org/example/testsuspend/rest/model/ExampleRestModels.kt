@@ -9,7 +9,7 @@ data class CreatePaymentRequest(
     val orderId: String,
     val amountMinor: Long,
     val currency: String,
-) : RequestInfo
+) : RequestInfo, java.io.Serializable
 
 data class CreatePaymentResponse(
     val paymentId: String,
@@ -23,7 +23,7 @@ data class ResolveCustomerRequest(
     val customerId: String,
     val locale: String,
     val includeContacts: Boolean,
-) : RequestInfo
+) : RequestInfo, java.io.Serializable
 
 data class ResolveCustomerResponse(
     val customerId: String,

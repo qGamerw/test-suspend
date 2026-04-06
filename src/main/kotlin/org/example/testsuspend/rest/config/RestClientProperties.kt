@@ -4,6 +4,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 
 @ConfigurationProperties(prefix = "rest-client")
 data class RestClientProperties(
+    val threadCount: Int = 16,
     val timeoutMillis: Long = 10_000,
     val maxConnectionsCount: Int = 64,
     val maxConnectionsPerRoute: Int = 16,

@@ -1,10 +1,10 @@
 package org.example.testsuspend.rest.client
 
-import kotlinx.coroutines.test.runTest
-import org.example.testsuspend.rest.logging.RestClientLogWriter
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlinx.coroutines.test.runTest
+import org.example.testsuspend.rest.logging.RestClientLogWriter
 
 class LoggingRestClientTest {
 
@@ -17,6 +17,7 @@ class LoggingRestClientTest {
                 override suspend fun call(request: TestRequest): TestResponse = TestResponse(status = "ok")
             },
             logWriter = logWriter,
+            requestIdProvider = TestRequest::requestId,
         )
 
         val response = client.call(TestRequest(requestId = "req-1", customHeaders = emptyMap(), value = "hello"))
@@ -36,6 +37,7 @@ class LoggingRestClientTest {
                 override suspend fun call(request: TestRequest): TestResponse = error("boom")
             },
             logWriter = logWriter,
+            requestIdProvider = TestRequest::requestId,
         )
 
         val exception = assertFailsWith<IllegalStateException> {

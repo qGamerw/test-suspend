@@ -1,62 +1,82 @@
 package org.example.testsuspend.rest.client
 
-import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.call.body
+import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpMethod
 import io.ktor.http.isSuccess
-import io.ktor.util.reflect.TypeInfo
-import kotlinx.coroutines.CancellationException
-import org.example.testsuspend.rest.config.HttpClientProvider
+import java.io.Closeable
 import java.io.IOException
-import kotlin.reflect.KClass
+import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.CancellationException
+import org.example.testsuspend.rest.config.HttpClientSettings
+import org.example.testsuspend.rest.config.HttpConfiguration
+import org.example.testsuspend.rest.config.KtorHttpClientFactory
+import io.ktor.client.HttpClient as KtorRawHttpClient
 
-class KtorRestClient<Rq : RequestInfo, Rs : Any>(
-    private val httpClientProvider: HttpClientProvider,
-    private val url: String,
-    requestType: KClass<Rq>,
-    responseType: KClass<Rs>,
-    private val requestIdHeaderName: String,
-    private val httpMethod: HttpMethod = HttpMethod.Post,
-    private val configureRequest: HttpRequestBuilder.() -> Unit = {},
-) : RestClient<Rq, Rs> {
+class KtorRestClient<Request : java.io.Serializable, Response : Any>(
+    val configuration: HttpConfiguration,
+    private val httpClientFactory: KtorHttpClientFactory,
+    private val serializer: Serializable<Request, Response>,
+    private val requestCustomizer: (HttpRequestBuilder, RequestDescription<Request>) -> Unit = { _, _ -> },
+    private val integrationInfo: IntegrationInfo<Request>,
+) : HttpClient<Request, Response>, Closeable, Restartable {
 
-    // TypeInfo считаем один раз, чтобы не собирать его на каждый запрос.
-    private val requestTypeInfo = TypeInfo(requestType, requestType.java, null)
-    private val responseTypeInfo = TypeInfo(responseType, responseType.java, null)
+    private val clientRef = AtomicReference(createClient(configuration.clientSettings()))
 
-    override suspend fun call(request: Rq): Rs {
+    override suspend fun call(request: Request): Response {
+        val requestDescription = RequestDescription(
+            request = request,
+            url = configuration.url,
+            method = configuration.method,
+            integrationInfo = integrationInfo,
+        )
+        val requestId = integrationInfo.requestIdProvider(request)
+
         try {
-            // Берём актуальный HttpClient из provider, чтобы поддерживать runtime-реконфигурацию.
-            val response = httpClientProvider.get().request(url) {
-                method = httpMethod
+            val response = clientRef.get().request(configuration.url) {
+                method = configuration.method
                 header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
                 header(HttpHeaders.Accept, ContentType.Application.Json.toString())
-                header(requestIdHeaderName, request.requestId)
-                request.customHeaders.forEach { (key, value) ->
+                header(configuration.requestIdHeaderName, requestId)
+                integrationInfo.customHeadersProvider(request).forEach { (key, value) ->
                     header(key, value)
                 }
-                setBody(request, requestTypeInfo)
-                configureRequest()
+                requestCustomizer(this, requestDescription)
+                setBody(request, serializer.requestTypeInfo)
             }
 
-            ensureSuccess(response, request.requestId)
+            ensureSuccess(response, requestId)
 
             return try {
-                response.body(responseTypeInfo)
+                response.body(serializer.responseTypeInfo)
             } catch (throwable: Throwable) {
-                throw mapSerializationException(request.requestId, throwable)
+                throw mapSerializationException(requestId, throwable)
             }
         } catch (throwable: Throwable) {
-            throw mapCallException(request.requestId, throwable)
+            throw mapCallException(requestId, throwable)
         }
+    }
+
+    override fun restart() {
+        val newClient = createClient(configuration.clientSettings())
+        val oldClient = clientRef.getAndSet(newClient)
+        oldClient.close()
+    }
+
+    fun reconfigure(settings: HttpClientSettings) {
+        configuration.reconfigure(settings)
+        restart()
+    }
+
+    override fun close() {
+        clientRef.get().close()
     }
 
     private suspend fun ensureSuccess(response: HttpResponse, requestId: String) {
@@ -65,8 +85,8 @@ class KtorRestClient<Rq : RequestInfo, Rs : Any>(
         }
 
         throw RestClientHttpException(
-            url = url,
-            method = httpMethod,
+            url = configuration.url,
+            method = configuration.method,
             requestId = requestId,
             statusCode = response.status,
             responseBody = response.bodyAsText(),
@@ -76,11 +96,13 @@ class KtorRestClient<Rq : RequestInfo, Rs : Any>(
     private fun mapCallException(requestId: String, throwable: Throwable): Throwable = when (throwable) {
         is CancellationException -> throwable
         is RestClientException -> throwable
-        is HttpRequestTimeoutException -> RestClientTimeoutException(url, httpMethod, requestId, throwable)
-        is IOException -> RestClientTransportException(url, httpMethod, requestId, throwable)
+        is HttpRequestTimeoutException -> RestClientTimeoutException(configuration.url, configuration.method, requestId, throwable)
+        is IOException -> RestClientTransportException(configuration.url, configuration.method, requestId, throwable)
         else -> throwable
     }
 
     private fun mapSerializationException(requestId: String, throwable: Throwable): RestClientSerializationException =
-        RestClientSerializationException(url, httpMethod, requestId, throwable)
+        RestClientSerializationException(configuration.url, configuration.method, requestId, throwable)
+
+    private fun createClient(settings: HttpClientSettings): KtorRawHttpClient = httpClientFactory.create(settings)
 }

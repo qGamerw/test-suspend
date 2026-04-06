@@ -1,8 +1,11 @@
 package org.example.testsuspend.rest.config
 
+import io.ktor.http.HttpMethod
+import org.example.testsuspend.rest.client.IntegrationInfo
 import org.example.testsuspend.rest.client.KtorRestClient
 import org.example.testsuspend.rest.client.LoggingRestClient
 import org.example.testsuspend.rest.client.RestClient
+import org.example.testsuspend.rest.client.TypeInfoSerializable
 import org.example.testsuspend.rest.logging.RestClientLogWriter
 import org.example.testsuspend.rest.logging.Slf4jRestClientLogWriter
 import org.example.testsuspend.rest.model.CreatePaymentRequest
@@ -19,22 +22,50 @@ class RestClientConfig {
 
     @Bean
     // Factory создаёт новый HttpClient при старте и при runtime-реконфигурации.
-    fun httpClientFactory(): HttpClientFactory = KtorHttpClientFactory()
+    fun httpClientFactory(): KtorHttpClientFactory = KtorHttpClientFactory()
 
-    @Bean
-    // Provider хранит текущий HttpClient и даёт единый вход для его подмены.
-    fun httpClientProvider(
-        properties: RestClientProperties,
-        httpClientFactory: HttpClientFactory,
-    ): HttpClientProvider = HttpClientProvider(
-        httpClientFactory = httpClientFactory,
+    @Bean("createPaymentHttpConfiguration")
+    fun createPaymentHttpConfiguration(properties: RestClientProperties): HttpConfiguration = HttpConfiguration(
+        url = properties.createPaymentUrl,
+        requestIdHeaderName = properties.requestIdHeaderName,
+        method = HttpMethod.Post,
         initialSettings = HttpClientSettings(
+            threadCount = properties.threadCount,
             timeoutMillis = properties.timeoutMillis,
             maxConnectionsCount = properties.maxConnectionsCount,
             maxConnectionsPerRoute = properties.maxConnectionsPerRoute,
             keepAliveTimeMillis = properties.keepAliveTimeMillis,
             connectAttempts = properties.connectAttempts,
         ),
+    )
+
+    @Bean("resolveCustomerHttpConfiguration")
+    fun resolveCustomerHttpConfiguration(properties: RestClientProperties): HttpConfiguration = HttpConfiguration(
+        url = properties.resolveCustomerUrl,
+        requestIdHeaderName = properties.requestIdHeaderName,
+        method = HttpMethod.Post,
+        initialSettings = HttpClientSettings(
+            threadCount = properties.threadCount,
+            timeoutMillis = properties.timeoutMillis,
+            maxConnectionsCount = properties.maxConnectionsCount,
+            maxConnectionsPerRoute = properties.maxConnectionsPerRoute,
+            keepAliveTimeMillis = properties.keepAliveTimeMillis,
+            connectAttempts = properties.connectAttempts,
+        ),
+    )
+
+    @Bean("createPaymentIntegrationInfo")
+    fun createPaymentIntegrationInfo(): IntegrationInfo<CreatePaymentRequest> = IntegrationInfo(
+        name = "create-payment",
+        requestIdProvider = CreatePaymentRequest::requestId,
+        customHeadersProvider = CreatePaymentRequest::customHeaders,
+    )
+
+    @Bean("resolveCustomerIntegrationInfo")
+    fun resolveCustomerIntegrationInfo(): IntegrationInfo<ResolveCustomerRequest> = IntegrationInfo(
+        name = "resolve-customer",
+        requestIdProvider = ResolveCustomerRequest::requestId,
+        customHeadersProvider = ResolveCustomerRequest::customHeaders,
     )
 
     @Bean
@@ -44,36 +75,42 @@ class RestClientConfig {
     @Bean("createPaymentRestClient")
     // Typed-клиент собирается как wrapper: logging -> ktor transport.
     fun createPaymentRestClient(
-        httpClientProvider: HttpClientProvider,
+        httpClientFactory: KtorHttpClientFactory,
+        @org.springframework.beans.factory.annotation.Qualifier("createPaymentHttpConfiguration")
+        httpConfiguration: HttpConfiguration,
+        @org.springframework.beans.factory.annotation.Qualifier("createPaymentIntegrationInfo")
+        integrationInfo: IntegrationInfo<CreatePaymentRequest>,
         restClientLogWriter: RestClientLogWriter,
-        properties: RestClientProperties,
     ): RestClient<CreatePaymentRequest, CreatePaymentResponse> = LoggingRestClient(
-        operationName = "create-payment",
+        operationName = integrationInfo.name,
         delegate = KtorRestClient(
-            httpClientProvider = httpClientProvider,
-            url = properties.createPaymentUrl,
-            requestType = CreatePaymentRequest::class,
-            responseType = CreatePaymentResponse::class,
-            requestIdHeaderName = properties.requestIdHeaderName,
+            configuration = httpConfiguration,
+            httpClientFactory = httpClientFactory,
+            serializer = TypeInfoSerializable(CreatePaymentRequest::class, CreatePaymentResponse::class),
+            integrationInfo = integrationInfo,
         ),
         logWriter = restClientLogWriter,
+        requestIdProvider = integrationInfo.requestIdProvider,
     )
 
     @Bean("resolveCustomerRestClient")
     // Отдельный bean для другого контракта, но на том же reloadable HttpClientProvider.
     fun resolveCustomerRestClient(
-        httpClientProvider: HttpClientProvider,
+        httpClientFactory: KtorHttpClientFactory,
+        @org.springframework.beans.factory.annotation.Qualifier("resolveCustomerHttpConfiguration")
+        httpConfiguration: HttpConfiguration,
+        @org.springframework.beans.factory.annotation.Qualifier("resolveCustomerIntegrationInfo")
+        integrationInfo: IntegrationInfo<ResolveCustomerRequest>,
         restClientLogWriter: RestClientLogWriter,
-        properties: RestClientProperties,
     ): RestClient<ResolveCustomerRequest, ResolveCustomerResponse> = LoggingRestClient(
-        operationName = "resolve-customer",
+        operationName = integrationInfo.name,
         delegate = KtorRestClient(
-            httpClientProvider = httpClientProvider,
-            url = properties.resolveCustomerUrl,
-            requestType = ResolveCustomerRequest::class,
-            responseType = ResolveCustomerResponse::class,
-            requestIdHeaderName = properties.requestIdHeaderName,
+            configuration = httpConfiguration,
+            httpClientFactory = httpClientFactory,
+            serializer = TypeInfoSerializable(ResolveCustomerRequest::class, ResolveCustomerResponse::class),
+            integrationInfo = integrationInfo,
         ),
         logWriter = restClientLogWriter,
+        requestIdProvider = integrationInfo.requestIdProvider,
     )
 }

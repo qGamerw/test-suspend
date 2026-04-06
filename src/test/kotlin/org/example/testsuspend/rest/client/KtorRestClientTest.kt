@@ -2,10 +2,9 @@ package org.example.testsuspend.rest.client
 
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.MockRequestHandler
 import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.HttpRequestTimeoutException
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -13,13 +12,13 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.HttpStatusCode.Companion.InternalServerError
 import io.ktor.http.headersOf
 import io.ktor.serialization.jackson.jackson
-import kotlinx.coroutines.test.runTest
-import org.example.testsuspend.rest.config.HttpClientFactory
-import org.example.testsuspend.rest.config.HttpClientProvider
-import org.example.testsuspend.rest.config.HttpClientSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlinx.coroutines.test.runTest
+import org.example.testsuspend.rest.config.HttpClientSettings
+import org.example.testsuspend.rest.config.HttpConfiguration
+import org.example.testsuspend.rest.config.KtorHttpClientFactory
 
 class KtorRestClientTest {
 
@@ -113,17 +112,11 @@ class KtorRestClientTest {
     }
 
     private fun testClient(engine: MockEngine): KtorRestClient<GreetingRequest, GreetingResponse> = KtorRestClient(
-        httpClientProvider = HttpClientProvider(
-            httpClientFactory = object : HttpClientFactory {
-                override fun create(settings: HttpClientSettings): HttpClient = HttpClient(engine) {
-                    install(ContentNegotiation) {
-                        jackson {
-                            findAndRegisterModules()
-                        }
-                    }
-                }
-            },
+        configuration = HttpConfiguration(
+            url = "https://example.org/test",
+            requestIdHeaderName = "X-Request-Id",
             initialSettings = HttpClientSettings(
+                threadCount = 16,
                 timeoutMillis = 10_000,
                 maxConnectionsCount = 64,
                 maxConnectionsPerRoute = 16,
@@ -131,10 +124,21 @@ class KtorRestClientTest {
                 connectAttempts = 1,
             ),
         ),
-        url = "https://example.org/test",
-        requestType = GreetingRequest::class,
-        responseType = GreetingResponse::class,
-        requestIdHeaderName = "X-Request-Id",
+        httpClientFactory = object : KtorHttpClientFactory() {
+            override fun create(settings: HttpClientSettings): HttpClient = HttpClient(engine) {
+                install(ContentNegotiation) {
+                    jackson {
+                        findAndRegisterModules()
+                    }
+                }
+            }
+        },
+        serializer = TypeInfoSerializable(GreetingRequest::class, GreetingResponse::class),
+        integrationInfo = IntegrationInfo(
+            name = "test-integration",
+            requestIdProvider = GreetingRequest::requestId,
+            customHeadersProvider = GreetingRequest::customHeaders,
+        ),
     )
 
     private fun testRequest() = GreetingRequest(
@@ -148,7 +152,7 @@ private data class GreetingRequest(
     val name: String,
     override val requestId: String,
     override val customHeaders: Map<String, String>,
-) : RequestInfo
+) : RequestInfo, java.io.Serializable
 
 private data class GreetingResponse(
     val message: String,

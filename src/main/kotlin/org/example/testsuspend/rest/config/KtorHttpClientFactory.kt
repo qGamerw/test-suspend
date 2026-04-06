@@ -6,10 +6,13 @@ import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.jackson.jackson
 
-class KtorHttpClientFactory : HttpClientFactory {
+open class KtorHttpClientFactory {
 
-    override fun create(settings: HttpClientSettings): HttpClient = HttpClient(CIO) {
+    open fun create(settings: HttpClientSettings): HttpClient = HttpClient(CIO) {
         engine {
+            // Ограничиваем количество engine threads, чтобы клиент не забирал CPU у остальных процессов.
+            threadsCount = settings.threadCount
+
             // Ограничиваем общий пул соединений, чтобы клиент не съедал все ресурсы процесса.
             maxConnectionsCount = settings.maxConnectionsCount
 

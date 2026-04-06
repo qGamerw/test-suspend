@@ -1,8 +1,8 @@
 package org.example.testsuspend
 
+import kotlin.test.assertNotNull
 import org.example.testsuspend.rest.client.RestClient
-import org.example.testsuspend.rest.config.HttpClientFactory
-import org.example.testsuspend.rest.config.HttpClientProvider
+import org.example.testsuspend.rest.config.KtorHttpClientFactory
 import org.example.testsuspend.rest.controller.RestClientUsageExamplesController
 import org.example.testsuspend.rest.logging.RestClientLogWriter
 import org.example.testsuspend.rest.model.CreatePaymentRequest
@@ -10,19 +10,15 @@ import org.example.testsuspend.rest.model.CreatePaymentResponse
 import org.example.testsuspend.rest.model.ResolveCustomerRequest
 import org.example.testsuspend.rest.model.ResolveCustomerResponse
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.beans.factory.annotation.Autowired
-import kotlin.test.assertNotNull
 
 @SpringBootTest
 class TestSuspendApplicationTests {
 
     @Autowired
-    private lateinit var httpClientFactory: HttpClientFactory
-
-    @Autowired
-    private lateinit var httpClientProvider: HttpClientProvider
+    private lateinit var httpClientFactory: KtorHttpClientFactory
 
     @Autowired
     private lateinit var restClientLogWriter: RestClientLogWriter
@@ -41,8 +37,6 @@ class TestSuspendApplicationTests {
     @Test
     fun contextLoads() {
         assertNotNull(httpClientFactory)
-        assertNotNull(httpClientProvider)
-        assertNotNull(httpClientProvider.get())
         assertNotNull(restClientLogWriter)
         assertNotNull(restClientUsageExamplesController)
         assertNotNull(createPaymentRestClient)
