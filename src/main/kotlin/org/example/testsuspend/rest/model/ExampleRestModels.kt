@@ -1,15 +1,11 @@
 package org.example.testsuspend.rest.model
 
-import org.example.testsuspend.rest.client.RequestInfo
-
 data class CreatePaymentRequest(
-    override val requestId: String,
-    override val customHeaders: Map<String, String> = emptyMap(),
     val merchantId: String,
     val orderId: String,
     val amountMinor: Long,
     val currency: String,
-) : RequestInfo, java.io.Serializable
+)
 
 data class CreatePaymentResponse(
     val paymentId: String,
@@ -18,12 +14,10 @@ data class CreatePaymentResponse(
 )
 
 data class ResolveCustomerRequest(
-    override val requestId: String,
-    override val customHeaders: Map<String, String> = emptyMap(),
     val customerId: String,
     val locale: String,
     val includeContacts: Boolean,
-) : RequestInfo, java.io.Serializable
+)
 
 data class ResolveCustomerResponse(
     val customerId: String,
