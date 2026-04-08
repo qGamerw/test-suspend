@@ -1,4 +1,4 @@
-package org.example.testsuspend.rest.client.impl
+package org.example.testsuspend.rest.client
 
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -9,21 +9,33 @@ import io.ktor.client.request.header
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.serialization.jackson.jackson
-import org.example.testsuspend.rest.client.RestClientFactory
+import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.isActive
 import org.example.testsuspend.rest.dto.properties.HttpConfiguration
-import org.springframework.stereotype.Component
 
-@Component
-class RestClientFactoryImpl : RestClientFactory {
+class RestClientProvider(
+    private val settings: HttpConfiguration
+): Reconfigurable, AutoCloseable {
 
-    override fun create(settings: HttpConfiguration): HttpClient = HttpClient(CIO) {
+    val clientRef = AtomicReference(create())
+
+    override fun reconfigure() {
+        val oldClient = clientRef.getAndSet(create())
+        oldClient.close()
+    }
+
+    override fun close() {
+        // todo release?
+        clientRef.get().close()
+    }
+
+    private fun create(): HttpClient = HttpClient(CIO) {
         defaultRequest {
             header(HttpHeaders.Accept, ContentType.Application.Json)
             url(settings.baseUrl)
         }
 
         engine {
-            threadsCount = settings.threadCount
             maxConnectionsCount = settings.maxConnectionsCount
 
             endpoint.apply {

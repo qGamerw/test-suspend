@@ -2,8 +2,8 @@ package org.example.testsuspend.rest.dto.properties
 
 class HttpConfigurationImpl(
     override val baseUrl: String,
-    override val path: String,
-    override val threadCount: Int,
+    override val resolveCustomerPath: String,
+    override val createPaymentPath: String,
     override val timeoutMillis: Long,
     override val maxConnectionsCount: Int,
     override val maxConnectionsPerRoute: Int,

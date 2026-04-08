@@ -4,9 +4,9 @@ interface HttpConfiguration {
 
     val baseUrl: String
 
-    val path: String
+    val createPaymentPath: String
 
-    val threadCount: Int
+    val resolveCustomerPath: String
 
     val timeoutMillis: Long
 

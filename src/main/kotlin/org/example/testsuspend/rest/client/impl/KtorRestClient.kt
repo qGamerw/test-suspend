@@ -1,50 +1,70 @@
 package org.example.testsuspend.rest.client.impl
 
 import io.ktor.client.call.body
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.isSuccess
 import io.ktor.util.reflect.TypeInfo
-import java.util.concurrent.atomic.AtomicReference
-import org.example.testsuspend.rest.client.Reconfigurable
+import java.util.UUID
 import org.example.testsuspend.rest.client.RestClient
-import org.example.testsuspend.rest.client.RestClientFactory
+import org.example.testsuspend.rest.client.RestClientProvider
+import org.example.testsuspend.rest.dto.ApiError
 import org.example.testsuspend.rest.dto.Result
-import org.example.testsuspend.rest.dto.properties.HttpConfiguration
 
 class KtorRestClient<Request, Response>(
-    private val httpConfiguration: HttpConfiguration,
-    private val restClientFactory: RestClientFactory,
+    private val getPath: () -> String,
+    private val restClientProvider: RestClientProvider,
     private val requestTypeInfo: TypeInfo,
     private val responseTypeInfo: TypeInfo,
-) : RestClient<Request, Response>, AutoCloseable, Reconfigurable {
-
-    private val clientRef = AtomicReference(restClientFactory.create(httpConfiguration))
+) : RestClient<Request, Response> {
 
     override suspend fun postCall(request: Request): Result<Response> {
+        val requestId = UUID.randomUUID().toString()
         var response: HttpResponse? = null
+
         try {
-            response = clientRef.get().post(httpConfiguration.path) {
-                url {
-                    headers
-                }
+            response = restClientProvider.clientRef.get().post(getPath()) {
+                header(REQUEST_ID_HEADER, requestId)
                 setBody(request, requestTypeInfo)
             }
-            return Result.success(response, response.body(responseTypeInfo))
+
+            if (!response.status.isSuccess()) {
+                return Result.Failure(
+                    ApiError(
+                        code = "HTTP_${response.status.value}",
+                        message = "Downstream request failed with status ${response.status.value}",
+                        requestId = requestId,
+                        statusCode = response.status.value,
+                        responseBody = response.bodyAsText(),
+                        headers = response.headers.entries().associate { it.key to it.value },
+                    )
+                )
+            }
+
+            return Result.Success(requestId, response.status.value, response.body(responseTypeInfo))
         } catch (e: Exception) {
-            return Result.failure(
-                response,
-                e
+            return Result.Failure(
+                ApiError(
+                    code = e::class.simpleName ?: CLIENT_ERROR_CODE,
+                    message = e.message ?: "HTTP client call failed",
+                    requestId = requestId,
+                    statusCode = response?.status?.value,
+                    responseBody = response?.let { safeBodyAsText(it) },
+                    headers = response?.headers?.entries()?.associate { it.key to it.value }.orEmpty(),
+                )
             )
         }
     }
 
-    override fun reconfigure() {
-        val oldClient = clientRef.getAndSet(restClientFactory.create(httpConfiguration))
-        oldClient.close()
-    }
+    private suspend fun safeBodyAsText(response: HttpResponse): String? = runCatching {
+        response.bodyAsText()
+    }.getOrNull()
 
-    override fun close() {
-        clientRef.get()?.close()
+    private companion object {
+        const val REQUEST_ID_HEADER = "X-Request-Id"
+        const val CLIENT_ERROR_CODE = "HTTP_CLIENT_ERROR"
     }
 }
