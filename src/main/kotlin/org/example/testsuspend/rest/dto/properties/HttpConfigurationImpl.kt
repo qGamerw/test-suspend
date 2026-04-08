@@ -1,9 +1,8 @@
-package org.example.testsuspend.rest.configuration.impl
-
-import org.example.testsuspend.rest.configuration.HttpConfiguration
+package org.example.testsuspend.rest.dto.properties
 
 class HttpConfigurationImpl(
-    override val url: String,
+    override val baseUrl: String,
+    override val path: String,
     override val threadCount: Int,
     override val timeoutMillis: Long,
     override val maxConnectionsCount: Int,

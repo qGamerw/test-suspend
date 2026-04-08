@@ -1,8 +1,10 @@
-package org.example.testsuspend.rest.configuration
+package org.example.testsuspend.rest.dto.properties
 
 interface HttpConfiguration {
 
-    val url: String
+    val baseUrl: String
+
+    val path: String
 
     val threadCount: Int
 

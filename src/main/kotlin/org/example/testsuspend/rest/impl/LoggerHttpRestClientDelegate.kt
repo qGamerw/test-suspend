@@ -8,10 +8,10 @@ class LoggerHttpRestClientDelegate<Request, Response>(
     private val delegate: HttpRestClientDelegate<Request, Response>,
 ) : HttpRestClientDelegate<Request, Response> {
 
-    override suspend fun getCall(request: Request): Result<Response> {
+    override suspend fun postCall(request: Request): Result<Response> {
         logger.info("Executing GET request: {}", request)
 
-        val response = delegate.getCall(request)
+        val response = delegate.postCall(request)
 
         logger.info("Received GET response: {}", response)
 
