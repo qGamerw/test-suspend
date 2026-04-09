@@ -10,8 +10,9 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 class PropertiesConfiguration {
 
-    @Bean
+    @Bean("defaultRestClientProvider")
     fun getRestClientProvider(
+        @org.springframework.beans.factory.annotation.Qualifier("httpConfiguration")
         httpConfiguration: HttpConfiguration
     ) = RestClientProvider(httpConfiguration)
 

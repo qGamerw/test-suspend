@@ -1,5 +1,6 @@
 package org.example.testsuspend.rest.client.impl
 
+import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.ktor.client.request.header
@@ -74,3 +75,5 @@ private suspend fun safeBodyAsText(response: HttpResponse): String? = runCatchin
 const val REQUEST_ID_HEADER = "X-Request-Id"
 const val CLIENT_ERROR_CODE = "HTTP_CLIENT_ERROR"
 val JSON_MAPPER = jacksonObjectMapper()
+    .findAndRegisterModules()
+    .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
