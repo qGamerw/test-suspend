@@ -3,6 +3,7 @@ package org.example.testsuspend.rest.client.impl
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import io.ktor.client.call.body
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -29,7 +30,7 @@ class KtorRestClient<Request, Response>(
         try {
             response = restClientProvider.getClient().post(getPath()) {
                 header(REQUEST_ID_HEADER, requestId)
-                setBody(JSON_MAPPER.writeValueAsString(request))
+                setBody(JSON_MAPPER.writeValueAsBytes(request))
             }
 
             if (!response.status.isSuccess()) {
@@ -48,7 +49,7 @@ class KtorRestClient<Request, Response>(
             return Result.Success(
                 requestId,
                 response.status.value,
-                JSON_MAPPER.readValue(response.bodyAsText(), typeReference)
+                JSON_MAPPER.readValue(response.body<ByteArray>(), typeReference)
             )
         } catch (e: CancellationException) {
             throw e
