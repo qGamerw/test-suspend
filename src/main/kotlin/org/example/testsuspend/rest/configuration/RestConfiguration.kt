@@ -1,6 +1,6 @@
 package org.example.testsuspend.rest.configuration
 
-import io.ktor.util.reflect.typeInfo
+import com.fasterxml.jackson.core.type.TypeReference
 import org.example.testsuspend.rest.HttpRestClientDelegate
 import org.example.testsuspend.rest.client.RestClient
 import org.example.testsuspend.rest.client.impl.KtorRestClient
@@ -24,8 +24,7 @@ class RestConfiguration {
     ): KtorRestClient<CreatePaymentRequest, CreatePaymentResponse> = KtorRestClient(
         { httpConfiguration.createPaymentPath },
         restClientProvider = restClientProvider,
-        requestTypeInfo = typeInfo<CreatePaymentRequest>(),
-        responseTypeInfo = typeInfo<CreatePaymentResponse>(),
+        typeReference = object : TypeReference<CreatePaymentResponse>() {}
     )
 
     @Bean
@@ -35,8 +34,7 @@ class RestConfiguration {
     ): KtorRestClient<ResolveCustomerRequest, ResolveCustomerResponse> = KtorRestClient(
         { httpConfiguration.resolveCustomerPath },
         restClientProvider = restClientProvider,
-        requestTypeInfo = typeInfo<ResolveCustomerRequest>(),
-        responseTypeInfo = typeInfo<ResolveCustomerResponse>(),
+        typeReference = object :TypeReference<ResolveCustomerResponse>() {}
     )
 
     @Bean

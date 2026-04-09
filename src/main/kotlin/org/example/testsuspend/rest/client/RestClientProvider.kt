@@ -3,21 +3,19 @@ package org.example.testsuspend.rest.client
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
-import io.ktor.client.request.header
 import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
-import io.ktor.serialization.jackson.jackson
+import io.ktor.http.contentType
 import java.util.concurrent.atomic.AtomicReference
-import kotlinx.coroutines.isActive
 import org.example.testsuspend.rest.dto.properties.HttpConfiguration
 
 class RestClientProvider(
     private val settings: HttpConfiguration
 ): Reconfigurable, AutoCloseable {
 
-    val clientRef = AtomicReference(create())
+    private val clientRef = AtomicReference(create())
+
+    fun getClient(): HttpClient = clientRef.get()
 
     override fun reconfigure() {
         val oldClient = clientRef.getAndSet(create())
@@ -31,7 +29,7 @@ class RestClientProvider(
 
     private fun create(): HttpClient = HttpClient(CIO) {
         defaultRequest {
-            header(HttpHeaders.Accept, ContentType.Application.Json)
+            contentType(ContentType.Application.Json)
             url(settings.baseUrl)
         }
 
@@ -51,12 +49,6 @@ class RestClientProvider(
             requestTimeoutMillis = settings.timeoutMillis
             connectTimeoutMillis = settings.timeoutMillis
             socketTimeoutMillis = settings.timeoutMillis
-        }
-
-        install(ContentNegotiation) {
-            jackson {
-                findAndRegisterModules()
-            }
         }
     }
 }

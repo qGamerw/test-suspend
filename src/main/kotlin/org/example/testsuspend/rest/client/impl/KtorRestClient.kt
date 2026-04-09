@@ -1,13 +1,13 @@
 package org.example.testsuspend.rest.client.impl
 
-import io.ktor.client.call.body
+import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
-import io.ktor.util.reflect.TypeInfo
 import java.util.UUID
 import org.example.testsuspend.rest.client.RestClient
 import org.example.testsuspend.rest.client.RestClientProvider
@@ -17,8 +17,7 @@ import org.example.testsuspend.rest.dto.Result
 class KtorRestClient<Request, Response>(
     private val getPath: () -> String,
     private val restClientProvider: RestClientProvider,
-    private val requestTypeInfo: TypeInfo,
-    private val responseTypeInfo: TypeInfo,
+    private val typeReference: TypeReference<Response>,
 ) : RestClient<Request, Response> {
 
     override suspend fun postCall(request: Request): Result<Response> {
@@ -26,9 +25,9 @@ class KtorRestClient<Request, Response>(
         var response: HttpResponse? = null
 
         try {
-            response = restClientProvider.clientRef.get().post(getPath()) {
+            response = restClientProvider.getClient().post(getPath()) {
                 header(REQUEST_ID_HEADER, requestId)
-                setBody(request, requestTypeInfo)
+                setBody(JSON_MAPPER.writeValueAsString(request))
             }
 
             if (!response.status.isSuccess()) {
@@ -44,7 +43,11 @@ class KtorRestClient<Request, Response>(
                 )
             }
 
-            return Result.Success(requestId, response.status.value, response.body(responseTypeInfo))
+            return Result.Success(
+                requestId,
+                response.status.value,
+                JSON_MAPPER.readValue(response.bodyAsText(), typeReference)
+            )
         } catch (e: Exception) {
             return Result.Failure(
                 ApiError(
@@ -59,12 +62,12 @@ class KtorRestClient<Request, Response>(
         }
     }
 
-    private suspend fun safeBodyAsText(response: HttpResponse): String? = runCatching {
-        response.bodyAsText()
-    }.getOrNull()
-
-    private companion object {
-        const val REQUEST_ID_HEADER = "X-Request-Id"
-        const val CLIENT_ERROR_CODE = "HTTP_CLIENT_ERROR"
-    }
 }
+
+private suspend fun safeBodyAsText(response: HttpResponse): String? = runCatching {
+    response.bodyAsText()
+}.getOrNull()
+
+const val REQUEST_ID_HEADER = "X-Request-Id"
+const val CLIENT_ERROR_CODE = "HTTP_CLIENT_ERROR"
+val JSON_MAPPER = jacksonObjectMapper()
