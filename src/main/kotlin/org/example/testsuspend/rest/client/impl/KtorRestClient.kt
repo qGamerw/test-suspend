@@ -8,6 +8,7 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
+import io.ktor.utils.io.CancellationException
 import java.util.UUID
 import org.example.testsuspend.rest.client.RestClient
 import org.example.testsuspend.rest.client.RestClientProvider
@@ -48,6 +49,8 @@ class KtorRestClient<Request, Response>(
                 response.status.value,
                 JSON_MAPPER.readValue(response.bodyAsText(), typeReference)
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             return Result.Failure(
                 ApiError(
